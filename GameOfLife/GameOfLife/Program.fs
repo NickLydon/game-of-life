@@ -1,5 +1,8 @@
 ﻿// Learn more about F# at http://fsharp.net
 // See the 'F# Tutorial' project for more help.
+
+open System
+
 type State = 
     | Alive
     | Dead
@@ -13,7 +16,9 @@ type console = System.Console
 
 [<EntryPoint>]
 let main argv = 
-    let rec gameLoop state = 
+
+
+    let gameLoop state = 
         let stepCell (cell : Cell) = 
             let liveNeighbours = 
                 cell.neighbours
@@ -49,14 +54,8 @@ let main argv =
                                                  |> Seq.exists (fun p -> p = c.position)) }))
         
         let iteration = withNeighbouringCells state |> List.map (fun row -> row |> List.map stepCell)
-        for row in iteration do
-            for cell in row do
-                console.Write(if cell.state = Alive then 'O'
-                              else ' ')
-            console.WriteLine("")
-        console.WriteLine("")
-        System.Threading.Thread.Sleep 500
-        gameLoop iteration
+        
+        iteration
     
     let initialConfig = 
         let pulsar = 
@@ -87,5 +86,46 @@ let main argv =
                                           position = (x, y)
                                           neighbours = [] }))
     
-    gameLoop initialCells
+    
+    let numberOfIterations =
+        if argv.Length > 0 
+        then
+            Int32.TryParse argv.[0]
+        else
+            (false, 0)
+
+
+    let draw iteration =
+        let writeline() = console.WriteLine()
+        for row in iteration do
+            for cell in row do
+                console.Write(if cell.state = Alive then 'O'
+                                else ' ')
+            writeline()
+        for _ in 1 .. 6 do writeline()
+
+    let cachableIterations = 
+        let cache = System.Collections.Generic.Dictionary<int,Cell list list>()
+        cache.[0] <- initialCells
+
+        (0, initialCells)
+        |> Seq.unfold(fun (number, state) ->
+            if fst numberOfIterations && number > snd numberOfIterations
+            then None
+            else
+                Some(state, (number + 1, if cache.ContainsKey number then cache.[number] else gameLoop state))
+        )
+
+    if fst numberOfIterations
+    then 
+        cachableIterations |> Seq.last |> draw
+        Console.ReadLine() |> ignore
+    else 
+        cachableIterations
+        |> Seq.iter(fun iteration ->
+            draw iteration
+            System.Threading.Thread.Sleep 500
+        )
+    
+    
     0 // return an integer exit code
